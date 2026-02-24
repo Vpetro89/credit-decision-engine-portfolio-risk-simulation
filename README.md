@@ -1,107 +1,97 @@
-# Credit Decision Engine & Portfolio Risk Monitoring Simulation
+# Credit Decision Engine & Portfolio Risk Monitoring Framework
 
-This repository simulates a regulated banking credit decision and
-portfolio risk monitoring environment. It demonstrates underwriting rule
-evaluation, portfolio segmentation, delinquency roll analysis, fraud
-anomaly detection, and audit-ready SQL logic.
+SQL-based credit decision and portfolio risk monitoring framework. Includes normalized schema design, synthetic portfolio generation, rule-based underwriting, delinquency lifecycle tracking, fraud anomaly detection, and expected loss calculation using reproducible SQL.
 
-The project is structured to reflect institutional-grade data modeling
-and defensible decision frameworks used in regulated financial
-environments.
-
-------------------------------------------------------------------------
+---
 
 ## 1. Business Objective
 
-Design and implement a simulated credit lifecycle system that supports:
+Design and implement a credit lifecycle system that supports:
 
--   Underwriting decision logic
--   Risk tier segmentation
--   Portfolio exposure monitoring
--   Delinquency roll-rate analysis
--   Fraud anomaly detection
--   Expected loss simulation
--   Audit traceability and governance framing
+- Underwriting decision evaluation  
+- Risk tier segmentation  
+- Portfolio exposure monitoring  
+- Delinquency roll-rate tracking  
+- Fraud anomaly detection  
+- Expected loss estimation  
+- Audit-traceable rule governance  
 
-The system emphasizes reproducible SQL transformations, transparent
-decision rationale, and structured rule evaluation.
+All logic is externalized and reproducible to reflect regulated analytics standards.
 
-------------------------------------------------------------------------
+---
 
 ## 2. Data Model Overview
 
 ### Fact Tables
 
-fact_applications\
-- application_id (PK)\
-- applicant_id (FK)\
-- application_date\
-- requested_amount\
-- fico_score\
-- income\
-- dti_ratio\
-- decision_status\
-- decision_reason_code
+**fact_applications**
+- application_id (PK)  
+- applicant_id (FK)  
+- application_date  
+- requested_amount  
+- fico_score  
+- income  
+- dti_ratio  
+- decision_status  
+- decision_reason_code  
 
-fact_accounts\
-- account_id (PK)\
-- applicant_id (FK)\
-- origination_date\
-- credit_limit\
-- current_balance\
-- utilization_ratio
+**fact_accounts**
+- account_id (PK)  
+- applicant_id (FK)  
+- origination_date  
+- credit_limit  
+- current_balance  
+- utilization_ratio  
 
-fact_account_snapshot\
-- account_id (FK)\
-- snapshot_date\
-- delinquency_status\
-- days_past_due\
-- balance
+**fact_account_snapshot**
+- snapshot_id (PK)  
+- account_id (FK)  
+- snapshot_date  
+- delinquency_status  
+- days_past_due  
+- balance  
 
-fact_transactions\
-- transaction_id (PK)\
-- account_id (FK)\
-- transaction_date\
-- amount\
-- merchant_category\
-- fraud_flag
+**fact_transactions**
+- transaction_id (PK)  
+- account_id (FK)  
+- transaction_date  
+- amount  
+- merchant_category  
+- fraud_flag  
 
-------------------------------------------------------------------------
+---
 
 ### Dimension Tables
 
-dim_applicant\
-- applicant_id (PK)\
-- state\
-- employment_type\
-- tenure_years\
-- income_band
+**dim_applicant**
+- applicant_id (PK)  
+- state  
+- employment_type  
+- tenure_years  
+- income_band  
 
-dim_fico_band\
-- fico_band_id (PK)\
-- min_score\
-- max_score\
-- risk_tier
+**dim_fico_band**
+- fico_band_id (PK)  
+- min_score  
+- max_score  
+- risk_tier  
 
-dim_decision_rules\
-- rule_id\
-- min_fico\
-- max_fico\
-- max_dti\
-- decision_outcome\
-- rule_version\
-- effective_date
+**dim_decision_rules**
+- rule_id  
+- min_fico  
+- max_fico  
+- max_dti  
+- decision_outcome  
+- rule_version  
+- effective_date  
 
-------------------------------------------------------------------------
+---
 
-## 3. Decision Rule Evaluation
+## 3. Rule-Based Underwriting Evaluation
 
-Underwriting logic is externalized through a rule table to support audit
-traceability and version control.
+Decision logic is externalized through a versioned rule table.
 
-Example evaluation logic:
-
-``` sql
+```sql
 SELECT a.application_id,
        r.decision_outcome
 FROM fact_applications a
@@ -110,22 +100,19 @@ JOIN dim_decision_rules r
  AND a.dti_ratio <= r.max_dti;
 ```
 
-Example policy simulation:
+Policy configuration example:
 
--   Auto decline if fico_score \< 580\
--   Refer if 580--640 and DTI \> 45%\
--   Approve if fico_score \> 680 and DTI \< 40%
+- FICO < 580 → Declined  
+- 580–640 with DTI > 45% → Refer  
+- FICO > 680 with DTI < 40% → Approved  
 
-Rules are versioned to simulate governance and model oversight
-environments.
+---
 
-------------------------------------------------------------------------
-
-## 4. Portfolio Monitoring Queries
+## 4. Portfolio Analytics Layer
 
 ### Approval Rate by Risk Tier
 
-``` sql
+```sql
 WITH banded AS (
     SELECT a.application_id,
            f.risk_tier,
@@ -135,21 +122,22 @@ WITH banded AS (
       ON a.fico_score BETWEEN f.min_score AND f.max_score
 )
 SELECT risk_tier,
-       COUNT(*) AS total_apps,
+       COUNT(*) AS total_applications,
        SUM(CASE WHEN decision_status = 'Approved' THEN 1 ELSE 0 END) AS approvals,
        ROUND(
          100.0 * SUM(CASE WHEN decision_status = 'Approved' THEN 1 ELSE 0 END)
          / COUNT(*), 2
        ) AS approval_rate_pct
 FROM banded
-GROUP BY risk_tier;
+GROUP BY risk_tier
+ORDER BY risk_tier;
 ```
 
-------------------------------------------------------------------------
+---
 
-### Delinquency Roll-Rate Analysis
+### Delinquency Roll Analysis
 
-``` sql
+```sql
 SELECT account_id,
        snapshot_date,
        delinquency_status,
@@ -158,11 +146,11 @@ SELECT account_id,
 FROM fact_account_snapshot;
 ```
 
-------------------------------------------------------------------------
+---
 
-### Fraud Anomaly Monitoring
+### Fraud Anomaly Detection
 
-``` sql
+```sql
 SELECT account_id,
        transaction_date,
        amount,
@@ -177,28 +165,39 @@ SELECT account_id,
            ROWS BETWEEN 30 PRECEDING AND CURRENT ROW
        ) AS rolling_stddev,
        CASE 
-           WHEN amount > rolling_avg + 3 * rolling_stddev 
-           THEN 1 ELSE 0 
+           WHEN amount >
+                AVG(amount) OVER (
+                    PARTITION BY account_id
+                    ORDER BY transaction_date
+                    ROWS BETWEEN 30 PRECEDING AND CURRENT ROW
+                )
+                + 3 * STDDEV(amount) OVER (
+                    PARTITION BY account_id
+                    ORDER BY transaction_date
+                    ROWS BETWEEN 30 PRECEDING AND CURRENT ROW
+                )
+           THEN 1 ELSE 0
        END AS anomaly_flag
 FROM fact_transactions;
 ```
 
-------------------------------------------------------------------------
+---
 
-## 5. Portfolio Risk KPIs
+## 5. Portfolio Risk Metrics
 
--   Total Exposure (EAD)
--   Utilization by Risk Tier
--   30/60/90+ Day Delinquency Rates
--   Roll-Rate Migration
--   Fraud Alert Volume
--   Approval Rate Stability Over Time
--   Vintage (Cohort) Analysis
--   Expected Loss Simulation (PD × LGD × EAD)
+Supported KPI calculations:
 
-Example Expected Loss:
+- Total Exposure (EAD)  
+- Utilization by Risk Tier  
+- 30/60/90+ Delinquency Distribution  
+- Roll-Rate Migration  
+- Fraud Alert Volume  
+- Approval Rate Stability  
+- Expected Loss (PD × LGD × EAD)  
 
-``` sql
+Example expected loss calculation:
+
+```sql
 SELECT account_id,
        current_balance AS ead,
        pd_rate,
@@ -207,53 +206,44 @@ SELECT account_id,
 FROM portfolio_risk_view;
 ```
 
-------------------------------------------------------------------------
+---
 
-## 6. Governance & Audit Framing
+## 6. Governance Structure
 
-This simulation demonstrates:
+- Rule tables stored separately from application logic  
+- Versioned decision policy  
+- Segmented risk reporting  
+- Reproducible SQL transformations  
+- Explicit decision reason codes  
+- Lifecycle-based portfolio monitoring  
 
--   Externalized rule logic
--   Version-controlled decision policy
--   Segmented risk tier reporting
--   Reproducible SQL transformations
--   Transparent decision reason codes
--   Lifecycle-based performance tracking
-
-------------------------------------------------------------------------
+---
 
 ## 7. Repository Structure
 
-/sql\
-/diagrams\
-/dashboard\
+```
+/sql
+/diagrams
+/dashboard
 README.md
+```
 
-------------------------------------------------------------------------
+---
 
-## 8. Technologies Used
+## 8. Technologies
 
--   PostgreSQL
--   Window Functions
--   Cohort Analysis
--   Risk Segmentation Logic
--   Statistical Anomaly Detection
+- PostgreSQL  
+- Window Functions  
+- Risk Segmentation Logic  
+- Statistical Threshold Monitoring  
+- Synthetic Data Generation  
 
-------------------------------------------------------------------------
+---
 
-## 9. Intended Audience
+## 9. Sample Output
 
--   Risk Analytics Teams
--   Credit Strategy Analysts
--   Fraud Monitoring Teams
--   Governance & Model Oversight
--   Data Engineering in Regulated Banking
+### Approval Rate by Risk Tier
+![Approval Rate](dashboard/approval_rate.png)
 
-------------------------------------------------------------------------
-
-## 10. Future Enhancements
-
--   CECL multi-scenario stress testing
--   Behavioral score migration tracking
--   Automated model drift monitoring
--   Real-time decision engine simulation
+### Delinquency Distribution (Latest Snapshot)
+![Delinquency Distribution](dashboard/delinquency_distribution.png)
