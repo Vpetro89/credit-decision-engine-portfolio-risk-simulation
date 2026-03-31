@@ -7,7 +7,6 @@ SQL-based credit decision and portfolio risk monitoring framework. Includes norm
 ## 1. Business Objective
 
 Design and implement a credit lifecycle system that supports:
-
 - Underwriting decision evaluation  
 - Risk tier segmentation  
 - Portfolio exposure monitoring  
